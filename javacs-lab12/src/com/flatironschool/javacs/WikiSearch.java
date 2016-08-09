@@ -1,6 +1,12 @@
 package com.flatironschool.javacs;
 
+import redis.clients.jedis.Jedis;
+
+// import java.io.BufferedReader;
+// import java.io.FileReader;
+import java.io.*;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -8,10 +14,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.ArrayList;
-
-import redis.clients.jedis.Jedis;
-
+import java.lang.Math;
 
 /**
  * Represents the results of a search query.
@@ -38,8 +41,12 @@ public class WikiSearch {
 	 * @return
 	 */
 	public Integer getRelevance(String url) {
+
 		Integer relevance = map.get(url);
 		return relevance==null ? 0: relevance;
+		/* double tf = relevance ? 1 + log(relevance) : 0;
+		double idf = 1;
+		return (int) Math.round(tf*idf); */
 	}
 	
 	/**
@@ -61,19 +68,16 @@ public class WikiSearch {
 	 * @return New WikiSearch object.
 	 */
 	public WikiSearch or(WikiSearch that) {
-        // FILL THIS IN!
-        Map<String, Integer> freq = new HashMap<>();
-        for (String url: map.keySet()) {
-        	freq.put(url, map.get(url));
-        }
-        for (String url : that.map.keySet()) {
-    		if (freq.containsKey(url)) {
-    			freq.put(url, map.get(url) + that.map.get(url));
-    		} else {
-    			freq.put(url, that.map.get(url));
-    		}
-        }
-		return new WikiSearch(freq);
+		WikiSearch w = new WikiSearch(this.map);
+		for (Map.Entry<String, Integer> e : that.map.entrySet()) {
+			//if this map contains a key that that map contains
+			if (this.map.containsKey(e.getKey())) {
+				w.map.put(e.getKey(), w.map.get(e.getKey()) + that.map.get(e.getKey()));
+			} else { //otherwise, only that map contains the key. 
+				w.map.put(e.getKey(), that.map.get(e.getKey()));
+			}
+		}
+		return w;
 	}
 	
 	/**
@@ -83,14 +87,15 @@ public class WikiSearch {
 	 * @return New WikiSearch object.
 	 */
 	public WikiSearch and(WikiSearch that) {
-        // FILL THIS IN!
-		Map<String, Integer> freq = new HashMap<>();
-        for (String url: map.keySet()) {
-        	if (that.map.containsKey(url)) {
-        		freq.put(url, map.get(url) + that.map.get(url));
-        	}
-        }
-		return new WikiSearch(freq);
+		Map m = new HashMap();
+		for (Map.Entry<String, Integer> e : this.map.entrySet()) {
+			//if this map contains a key that that map contains
+			if (that.map.containsKey(e.getKey())) {
+				m.put(e.getKey(), this.map.get(e.getKey()) + that.map.get(e.getKey()));
+			}
+		}
+		WikiSearch w = new WikiSearch(m);
+		return w;
 	}
 	
 	/**
@@ -100,14 +105,15 @@ public class WikiSearch {
 	 * @return New WikiSearch object.
 	 */
 	public WikiSearch minus(WikiSearch that) {
-        // FILL THIS IN!
-        Map<String, Integer> freq = new HashMap<>();
-        for (String url: map.keySet()) {
-        	if (!that.map.containsKey(url)) {
-        		freq.put(url, map.get(url));
-        	}
-        }
-		return new WikiSearch(freq);
+		Map m = new HashMap();
+		for (Map.Entry<String, Integer> e : this.map.entrySet()) {
+			//if this map contains a key that that map contains
+			if (that.map.containsKey(e.getKey()) == false) {
+				m.put(e.getKey(), this.map.get(e.getKey())/* + that.map.get(e.getKey())*/);
+			}
+		}
+		WikiSearch w = new WikiSearch(m);
+		return w;
 	}
 	
 	/**
@@ -128,17 +134,31 @@ public class WikiSearch {
 	 * @return List of entries with URL and relevance.
 	 */
 	public List<Entry<String, Integer>> sort() {
-        // FILL THIS IN!
-        List<Entry<String, Integer>> entries = new ArrayList<>();
-        for (Entry<String, Integer> entry: map.entrySet()) {
-        	entries.add(entry);
+ 
+        List<Entry<String, Integer>> l = new LinkedList<Entry<String, Integer>>(this.map.entrySet());
+        /*
+        for (Map.Entry<String, Integer> e : this.map.entrySet()) {
+        	//Entry<String, Integer> n = new Entry<String, Integer>(e.getKey(), e.getValue());
+        	l.add(e);
         }
-        Collections.sort(entries, new Comparator<Entry<String, Integer>>() {
-        	public int compare(Entry<String, Integer> e1, Entry<String, Integer> e2) {
-        		return e1.getValue() - e2.getValue();
-        	}
-        });
-		return entries;
+        */
+        Comparator<Entry<String, Integer>> comparator = new Comparator<Entry<String, Integer>>() {
+            @Override
+            public int compare(Entry<String, Integer> e1, Entry<String, Integer> e2) {
+            	if (getRelevance(e1.getKey()) < getRelevance(e2.getKey())) {
+                    return -1;
+                }
+            	if (getRelevance(e2.getKey()) < getRelevance(e1.getKey())) {
+                    return 1;
+                }
+                return 0;
+            }
+        };
+        
+       Collections.sort(l, comparator);
+
+        // System.out.println("sorted = " + l);
+		return l;
 	}
 
 	/**
@@ -158,7 +178,19 @@ public class WikiSearch {
 		// make a JedisIndex
 		Jedis jedis = JedisMaker.make();
 		JedisIndex index = new JedisIndex(jedis); 
-		
+
+		while (true) {
+			System.out.println("Enter your search term (type \"quit\" to end program):");
+			BufferedReader buffer=new BufferedReader(new InputStreamReader(System.in));
+			String term=buffer.readLine();
+			if (term.equals("quit")) {
+				break;
+			}
+			System.out.println("Query: " + term);
+			WikiSearch search1 = search(term, index);
+			search1.print();
+		}
+/*
 		// search for the first term
 		String term1 = "java";
 		System.out.println("Query: " + term1);
@@ -175,5 +207,6 @@ public class WikiSearch {
 		System.out.println("Query: " + term1 + " AND " + term2);
 		WikiSearch intersection = search1.and(search2);
 		intersection.print();
+		*/
 	}
 }
