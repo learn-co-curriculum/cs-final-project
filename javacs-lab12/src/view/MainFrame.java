@@ -60,16 +60,22 @@ public class MainFrame extends JFrame {
 				System.out.println(textField.getText());
 				String[] results = new String[10];
 				int index = 0;
-				for (Entry<String, Integer> entry: entries) {
-					results[index] = entry.getKey() + "=" + entry.getValue().toString();
-					System.out.println(results[index]);
-					index++;
-					
+				if (entries.isEmpty()) {
+					label1.setText("No result found!");
+					label2.setText("");
+					label3.setText("");
+					label4.setText("");
+
+				} else {
+					for (Entry<String, Integer> entry: entries) {
+						results[index] = entry.getKey() + "=" + entry.getValue().toString();
+						index++;
+					}
+					label1.setText(results[0]);
+					label2.setText(results[1]);
+					label3.setText(results[2]);
+					label4.setText(results[3]);
 				}
-				label1.setText(results[0]);
-				label2.setText(results[1]);
-				label3.setText(results[2]);
-				label4.setText(results[3]);
 			}
 		});
 		

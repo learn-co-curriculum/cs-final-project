@@ -90,6 +90,8 @@ public class TermCounter {
 
 	public String stemText(String text) {
 		stemmer.add(text.toCharArray(), text.length());
+		stemmer.stem();
+		System.out.println("term counter " + stemmer.toString());
 		return stemmer.toString();
 	}
 	/**

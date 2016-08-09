@@ -30,6 +30,7 @@ public class WikiSearch {
 	private Map<String, Integer> map;
 	private Jedis jedis;
 	private JedisIndex index;
+	private static Stemmer stemmer;
 
 	/**
 	 * Constructor.
