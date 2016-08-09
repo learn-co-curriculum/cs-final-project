@@ -29,6 +29,9 @@ public class JedisIndex {
 	 */
 	public JedisIndex(Jedis jedis) {
 		this.jedis = jedis;
+		// Create a new hash called PageCounter, that only has one key-value pair,
+		// 	which is "numberOfIndexedPages". Every time we index a new page, increment this value
+		jedis.hset("pageCounter", "numberOfIndexedPages", Integer.toString(0));
 	}
 	
 	/**
@@ -142,6 +145,13 @@ public class JedisIndex {
 	}
 
 	/**
+	 * Returns the total number of URLs indexed in the database.
+	 */
+	public Integer getNumberOfIndexedPages() {
+		return Integer.parseInt(jedis.hget("pageCounter", "numberOfIndexedPages"));
+	}
+
+	/**
 	 * Add a page to the index.
 	 * 
 	 * @param url         URL of the page.
@@ -150,6 +160,9 @@ public class JedisIndex {
 	public void indexPage(String url, Elements paragraphs) {
 		System.out.println("Indexing " + url);
 		
+		// increment numberOfPagesIndexed
+		jedis.hincrBy("pageCounter", "numberOfIndexedPages", 1);
+
 		// make a TermCounter and count the terms in the paragraphs
 		TermCounter tc = new TermCounter(url);
 		tc.processElements(paragraphs);
