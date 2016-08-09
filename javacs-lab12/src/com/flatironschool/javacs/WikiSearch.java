@@ -11,6 +11,7 @@ import java.util.Map.Entry;
 import java.util.ArrayList;
 
 import redis.clients.jedis.Jedis;
+import view.MainFrame;
 
 
 /**
@@ -21,6 +22,8 @@ public class WikiSearch {
 	
 	// map from URLs that contain the term(s) to relevance score
 	private Map<String, Integer> map;
+	private Jedis jedis;
+	private JedisIndex index;
 
 	/**
 	 * Constructor.
@@ -47,7 +50,7 @@ public class WikiSearch {
 	 * 
 	 * @param map
 	 */
-	private  void print() {
+	public void print() {
 		List<Entry<String, Integer>> entries = sort();
 		for (Entry<String, Integer> entry: entries) {
 			System.out.println(entry);
@@ -153,27 +156,38 @@ public class WikiSearch {
 		return new WikiSearch(map);
 	}
 
-	public static void main(String[] args) throws IOException {
-		
+	public void start() throws IOException {
 		// make a JedisIndex
-		Jedis jedis = JedisMaker.make();
-		JedisIndex index = new JedisIndex(jedis); 
-		
-		// search for the first term
-		String term1 = "java";
-		System.out.println("Query: " + term1);
-		WikiSearch search1 = search(term1, index);
-		search1.print();
-		
-		// search for the second term
-		String term2 = "programming";
-		System.out.println("Query: " + term2);
-		WikiSearch search2 = search(term2, index);
-		search2.print();
-		
-		// compute the intersection of the searches
-		System.out.println("Query: " + term1 + " AND " + term2);
-		WikiSearch intersection = search1.and(search2);
-		intersection.print();
+		jedis = JedisMaker.make();
+		index = new JedisIndex(jedis); 
 	}
+	
+	public void search(String term) {
+		WikiSearch search = search(term, index);
+		search.sort();
+	}
+	
+//	public static void main(String[] args) throws IOException {
+//		
+//		// make a JedisIndex
+//		Jedis jedis = JedisMaker.make();
+//		JedisIndex index = new JedisIndex(jedis); 
+//		
+//		// search for the first term
+//		String term1 = "java";
+//		System.out.println("Query: " + term1);
+//		WikiSearch search1 = search(term1, index);
+//		search1.print();
+//		
+//		// search for the second term
+//		String term2 = "programming";
+//		System.out.println("Query: " + term2);
+//		WikiSearch search2 = search(term2, index);
+//		search2.print();
+//		
+//		// compute the intersection of the searches
+//		System.out.println("Query: " + term1 + " AND " + term2);
+//		WikiSearch intersection = search1.and(search2);
+//		intersection.print();
+//	}
 }
