@@ -8,19 +8,23 @@ import java.util.Map.Entry;
 import redis.clients.jedis.Jedis;
 
 public class Runner {
+	StopWords stopwords;
 	Jedis jedis;
 	JedisIndex index;
 	WikiSearch search;
 	Stemmer stemmer;
 	public Runner() throws IOException {
 		// make a JedisIndex
+		stopwords = new StopWords();
 		jedis = JedisMaker.make();
 		index = new JedisIndex(jedis);	
-		stemmer = new Stemmer();
-		
+		stemmer = new Stemmer();		
 	}
 	
 	public List<Entry<String, Integer>> search(String term) {
+		for (String stopword : stopwords.getStopWords()) {
+			System.out.println(stopword);
+		}
 		search = WikiSearch.search(stemText(term), index);
 		return search.sort();
 	}

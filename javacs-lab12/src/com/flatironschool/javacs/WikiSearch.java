@@ -28,7 +28,7 @@ public class WikiSearch {
 	
 	// map from URLs that contain the term(s) to relevance score
 	private Map<String, Integer> map;
-	private Jedis jedis;
+	private Jedis jedis; 
 	private JedisIndex index;
 	private static Stemmer stemmer;
 
@@ -48,12 +48,8 @@ public class WikiSearch {
 	 * @return
 	 */
 	public Integer getRelevance(String url) {
-
 		Integer relevance = map.get(url);
 		return relevance==null ? 0: relevance;
-		/* double tf = relevance ? 1 + log(relevance) : 0;
-		double idf = 1;
-		return (int) Math.round(tf*idf); */
 	}
 	
 	/**
@@ -74,17 +70,25 @@ public class WikiSearch {
 	 * @param that
 	 * @return New WikiSearch object.
 	 */
-	public WikiSearch or(WikiSearch that) {
-		WikiSearch w = new WikiSearch(this.map);
-		for (Map.Entry<String, Integer> e : that.map.entrySet()) {
-			//if this map contains a key that that map contains
-			if (this.map.containsKey(e.getKey())) {
-				w.map.put(e.getKey(), w.map.get(e.getKey()) + that.map.get(e.getKey()));
-			} else { //otherwise, only that map contains the key. 
-				w.map.put(e.getKey(), that.map.get(e.getKey()));
+	public WikiSearch or(WikiSearch that) {		
+		// FILL THIS IN!
+        HashMap<String, Integer> results = new HashMap<String, Integer>();
+		for (String key : map.keySet()) {
+			results.put(key, map.get(key));
+		}
+		Map<String, Integer> that_map = that.getMap();
+		for (String key : that_map.keySet()) {
+			if (results.get(key) != null) {
+				results.put(key, results.get(key) + that_map.get(key));
+			} else {
+				results.put(key, that_map.get(key));
 			}
 		}
-		return w;
+		return new WikiSearch(results);
+	}
+	
+	public Map<String, Integer> getMap() {
+		return map;
 	}
 	
 	/**
@@ -94,7 +98,7 @@ public class WikiSearch {
 	 * @return New WikiSearch object.
 	 */
 	public WikiSearch and(WikiSearch that) {
-		Map m = new HashMap();
+		Map<String, Integer> m = new HashMap<String, Integer>();
 		for (Map.Entry<String, Integer> e : this.map.entrySet()) {
 			//if this map contains a key that that map contains
 			if (that.map.containsKey(e.getKey())) {
@@ -112,7 +116,7 @@ public class WikiSearch {
 	 * @return New WikiSearch object.
 	 */
 	public WikiSearch minus(WikiSearch that) {
-		Map m = new HashMap();
+		Map<String, Integer> m = new HashMap<String, Integer>();
 		for (Map.Entry<String, Integer> e : this.map.entrySet()) {
 			//if this map contains a key that that map contains
 			if (that.map.containsKey(e.getKey()) == false) {
@@ -176,7 +180,18 @@ public class WikiSearch {
 	 * @return
 	 */
 	public static WikiSearch search(String term, JedisIndex index) {
-		Map<String, Integer> map = index.getCounts(term);
+		if (StopWords.stopwords.contains(term)) {
+			Map<String, Integer> zero_frequency = new HashMap<String, Integer>();
+			int i = 0;
+			for (String URL : index.getAllURLs()) {
+				if (i < 10) {
+					zero_frequency.put(URL, 0);
+					i++;
+				}
+			}
+			return new WikiSearch(zero_frequency);
+		}
+		Map<String, Integer> map = index.getTF_IDF(term);
 		return new WikiSearch(map);
 	}
 
@@ -191,28 +206,4 @@ public class WikiSearch {
 		WikiSearch search = search(term, index);
 		search.sort();
 	}
-	
-//	public static void main(String[] args) throws IOException {
-//		
-//		// make a JedisIndex
-//		Jedis jedis = JedisMaker.make();
-//		JedisIndex index = new JedisIndex(jedis); 
-//		
-//		// search for the first term
-//		String term1 = "java";
-//		System.out.println("Query: " + term1);
-//		WikiSearch search1 = search(term1, index);
-//		search1.print();
-//		
-//		// search for the second term
-//		String term2 = "programming";
-//		System.out.println("Query: " + term2);
-//		WikiSearch search2 = search(term2, index);
-//		search2.print();
-//		
-//		// compute the intersection of the searches
-//		System.out.println("Query: " + term1 + " AND " + term2);
-//		WikiSearch intersection = search1.and(search2);
-//		intersection.print();
-//	}
 }

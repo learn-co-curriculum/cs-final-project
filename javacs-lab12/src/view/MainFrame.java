@@ -68,7 +68,7 @@ public class MainFrame extends JFrame {
 
 				} else {
 					for (Entry<String, Integer> entry: entries) {
-						results[index] = entry.getKey() + "=" + entry.getValue().toString();
+						results[index] = entry.getKey();
 						index++;
 					}
 					label1.setText(results[0]);

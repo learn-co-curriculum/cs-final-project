@@ -18,79 +18,18 @@ import redis.clients.jedis.Transaction;
  * Represents a Redis-backed web search index.
  * 
  */
-public class JedisIndex {
+public class JedisIndexWithCache {
 
 	private Jedis jedis;
-	private static final String PAGE_COUNTER = "pageCounter";
-	private static final String PAGE_COUNTER_KEY = "numIndexedPages";
+	private Map<String, Map<String, Integer>> cache;
 
 	/**
 	 * Constructor.
 	 * 
 	 * @param jedis
 	 */
-	public JedisIndex(Jedis jedis) {
+	public JedisIndexWithCache(Jedis jedis) {
 		this.jedis = jedis;
-		// Create a new hash called PageCounter, that only has one key-value pair,
-		// 	which is "numberOfIndexedPages". Every time we index a new page, increment this value
-		jedis.hset(PAGE_COUNTER, PAGE_COUNTER_KEY, Integer.toString(0));
-	}
-	
-	/**
-	 * Looks up a term and returns a map from URL to TF_IDF score.
-	 * 
-	 * @param term
-	 * @return Map from URL to count.
-	 */
-	public Map<String, Integer> getTF_IDF(String term) {
-		int	num_occurrences_in_doc;
-		int num_terms_in_doc;
-		int num_docs;
-		int num_docs_with_term;
-		Set<String> allURLs = getURLs(term);
-		Map<String, Integer> counts = getCountsFaster(term);
-		Map<String, Integer> totalTermsPerDoc = getTotalTermsPerDoc(allURLs);
-		Map<String, Integer> solution = new HashMap<String, Integer>();
-		
-		for (String URL : allURLs) {
-			num_occurrences_in_doc = counts.get(URL);
-			num_terms_in_doc = totalTermsPerDoc.get(URL);
-			num_docs = Integer.parseInt(jedis.hget(PAGE_COUNTER, PAGE_COUNTER_KEY));
-			num_docs_with_term = allURLs.size();
-			double tf = num_occurrences_in_doc/num_terms_in_doc;
-			double idf = num_docs/num_docs_with_term;
-			solution.put(URL, (int) (tf*idf*1000));
-		}
-		return solution;
-	}
-	
-	/**
-	 * Gets all URLs indexed
-	 * @return all URLs
-	 */
-	public Set<String> getAllURLs() {
-		Set<String> allURLKeys  = jedis.keys("URLSet:*");
-		HashSet<String> solution = new HashSet<String>();
-		for (String URLKey : allURLKeys) { 
-			solution.add(URLKey.substring(7));
-			
-		}
-		return solution;
-	}
-	
-	public Map<String, Integer> getTotalTermsPerDoc(Set<String> allURLs) {
-		// <URL   , count  >
-		Map<String, Integer> solution = new HashMap<String, Integer>();
-		int this_doc_count;
-		for (String URL : allURLs) {
-			this_doc_count = 0;
-			Map<String, String> counts_per_term= jedis.hgetAll(termCounterKey(URL));
-			for (String count : counts_per_term.values()) {
-				this_doc_count += Integer.parseInt(count);
-			}
-			solution.put(URL, this_doc_count);
-		}
-		return solution;
 	}
 	
 	/**
@@ -204,13 +143,6 @@ public class JedisIndex {
 	}
 
 	/**
-	 * Returns the total number of URLs indexed in the database.
-	 */
-	public Integer getNumberOfIndexedPages() {
-		return Integer.parseInt(jedis.hget(PAGE_COUNTER, PAGE_COUNTER_KEY));
-	}
-
-	/**
 	 * Add a page to the index.
 	 * 
 	 * @param url         URL of the page.
@@ -219,9 +151,6 @@ public class JedisIndex {
 	public void indexPage(String url, Elements paragraphs) {
 		System.out.println("Indexing " + url);
 		
-		// increment numberOfPagesIndexed
-		jedis.hincrBy(PAGE_COUNTER, PAGE_COUNTER_KEY, 1);
-
 		// make a TermCounter and count the terms in the paragraphs
 		TermCounter tc = new TermCounter(url);
 		tc.processElements(paragraphs);
@@ -249,10 +178,8 @@ public class JedisIndex {
 		// member of the index
 		for (String term: tc.keySet()) {
 			Integer count = tc.get(term);
-			if (!StopWords.stopwords.contains(term)){
-				t.hset(hashname, term, count.toString());
-				t.sadd(urlSetKey(term), url);
-			}
+			t.hset(hashname, term, count.toString());
+			t.sadd(urlSetKey(term), url);
 		}
 		List<Object> res = t.exec();
 		return res;
